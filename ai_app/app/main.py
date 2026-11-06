@@ -12,10 +12,10 @@ from .file_ingest import extract_text, chunks
 
 app = FastAPI(title="Self-Learning AI")
 app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "dev-secret-change-me"), https_only=True)
-app.mount("/static", StaticFiles(directory="ai_app/app/static"), name="static")
-templates = Jinja2Templates(directory="ai_app/app/templates")
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory="app/templates")
 Base.metadata.create_all(bind=engine)
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "change-me")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 AUTO_LEARN_DEFAULT = os.getenv("AUTO_LEARN_DEFAULT", "false").lower() == "true"
 
 def authed(request: Request):
@@ -27,7 +27,7 @@ def require_auth(request: Request):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "openai_configured": bool(os.getenv("OPENAI_API_KEY"))}
+    return {"ok": True, "openai_configured": bool(os.getenv("OPENAI_API_KEY")), "admin_configured": bool(ADMIN_PASSWORD)}
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -37,10 +37,12 @@ def home(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request":request})
+    return templates.TemplateResponse("login.html", {"request":request, "setup_needed": not bool(ADMIN_PASSWORD)})
 
 @app.post("/login")
 def login(request: Request, password: str = Form(...)):
+    if not ADMIN_PASSWORD:
+        return templates.TemplateResponse("login.html", {"request":request, "error":"Admin password is not configured yet.", "setup_needed": True}, status_code=503)
     if password != ADMIN_PASSWORD:
         return templates.TemplateResponse("login.html", {"request":request, "error":"Wrong password"}, status_code=401)
     request.session["auth"] = True
