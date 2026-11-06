@@ -26,3 +26,7 @@ services:
         generateValue: true
       - key: AUTO_LEARN_DEFAULT
         value: "false"
+      - key: ADMIN_USERNAME
+        value: "admin"
+      - key: ADMIN_PASSWORD
+        sync: false
