@@ -15,6 +15,8 @@ app.add_middleware(SessionMiddleware, secret_key=os.getenv("SESSION_SECRET", "de
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 Base.metadata.create_all(bind=engine)
+
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 AUTO_LEARN_DEFAULT = os.getenv("AUTO_LEARN_DEFAULT", "false").lower() == "true"
 
@@ -27,7 +29,11 @@ def require_auth(request: Request):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "openai_configured": bool(os.getenv("OPENAI_API_KEY")), "admin_configured": bool(ADMIN_PASSWORD)}
+    return {
+        "ok": True,
+        "openai_configured": bool(os.getenv("OPENAI_API_KEY")),
+        "admin_configured": bool(ADMIN_USERNAME and ADMIN_PASSWORD),
+    }
 
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
@@ -37,14 +43,25 @@ def home(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request":request, "setup_needed": not bool(ADMIN_PASSWORD)})
+    return templates.TemplateResponse(
+        "login.html",
+        {"request":request, "setup_needed": not bool(ADMIN_USERNAME and ADMIN_PASSWORD)},
+    )
 
 @app.post("/login")
-def login(request: Request, password: str = Form(...)):
-    if not ADMIN_PASSWORD:
-        return templates.TemplateResponse("login.html", {"request":request, "error":"Admin password is not configured yet.", "setup_needed": True}, status_code=503)
-    if password != ADMIN_PASSWORD:
-        return templates.TemplateResponse("login.html", {"request":request, "error":"Wrong password"}, status_code=401)
+def login(request: Request, username: str = Form(...), password: str = Form(...)):
+    if not ADMIN_USERNAME or not ADMIN_PASSWORD:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request":request, "error":"Admin login is not configured yet.", "setup_needed":True},
+            status_code=503,
+        )
+    if username != ADMIN_USERNAME or password != ADMIN_PASSWORD:
+        return templates.TemplateResponse(
+            "login.html",
+            {"request":request, "error":"Wrong username or password"},
+            status_code=401,
+        )
     request.session["auth"] = True
     return RedirectResponse("/", status_code=303)
 
