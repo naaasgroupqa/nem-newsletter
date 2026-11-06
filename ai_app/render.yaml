@@ -26,20 +26,3 @@ services:
         generateValue: true
       - key: AUTO_LEARN_DEFAULT
         value: "false"
-
-  - type: cron
-    name: self-learning-ai-research
-    runtime: python
-    rootDir: ai_app
-    schedule: "0 2 * * *"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python research_worker.py
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: self-learning-ai-db
-          property: connectionString
-      - key: OPENAI_MODEL
-        value: gpt-6.1-sol
-      - key: EMBEDDING_MODEL
-        value: text-embedding-3-small
